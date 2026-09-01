@@ -1,0 +1,39 @@
+---
+description: Règles base de données (Prisma / MySQL) pour Bazar en couleur
+globs: prisma/**, src/services/**
+alwaysApply: true
+---
+
+# DATABASE
+
+## Prisma comme unique couche d'accès
+
+Prisma est la SEULE couche d'accès à MySQL. Le frontend n'accède jamais directement à la base. Flux imposé : Frontend → Server/API → Services métier → Prisma → MySQL. Aucune logique métier complexe directement dans les composants React.
+
+## MySQL — pas de RLS
+
+MySQL ne supporte pas nativement la Row Level Security (RLS, spécifique à PostgreSQL). L'équivalent fonctionnel est un contrôle d'autorisation strict à la couche service/API (vérification systématique du rôle et de la propriété de la ressource avant toute lecture/écriture) — voir `security.mdc` et `backend.mdc`. Ne jamais supposer une protection au niveau de la base elle-même.
+
+## Migrations
+
+Toute modification du schéma Prisma est réfléchie avant exécution. Interdit sans validation explicite : supprimer une colonne, supprimer une table, modifier dangereusement un type de données, réinitialiser la base de production, migration destructive. Toujours utiliser les migrations Prisma. Après toute modification de schéma : générer la migration, la vérifier, régénérer Prisma Client, vérifier les usages concernés, lancer les tests, vérifier le build.
+
+## Données réelles vs données de test
+
+Ne jamais mélanger données de démonstration, de développement et de production. Les données fictives sont clairement identifiées. Ne jamais insérer de fausse commande ou de faux paiement dans la base de production.
+
+## Stock — concurrence
+
+Le stock est géré exclusivement côté serveur (jamais `stock = stock - 1` côté frontend). Les opérations critiques sur le stock (réservation 15 minutes, décrémentation au paiement confirmé, libération automatique, marquage "Vendu" d'une demande WhatsApp) doivent éviter les conditions de concurrence — utiliser des transactions Prisma / verrous appropriés pour empêcher deux commandes simultanées de réserver la même unité de stock en rupture.
+
+## SKU
+
+Le SKU de chaque variante est généré automatiquement par le serveur à la création (jamais saisi manuellement par l'utilisatrice), selon un format déterministe et unique — la génération de SKU est une logique métier centralisée (voir `backend.mdc`), jamais dupliquée entre plusieurs écrans d'administration.
+
+## Sauvegardes
+
+Sauvegardes automatiques régulières de la base MySQL Hostinger (s'appuyer sur l'offre de sauvegarde infogérée Hostinger). Ne jamais considérer une donnée métier critique comme durable si elle n'existe que dans `localStorage`, un cookie non sécurisé, l'état React ou la mémoire du navigateur — toute donnée métier importante est persistée en base.
+
+## Zones de livraison
+
+Les zones de livraison (retrait boutique, livraison Yaoundé, futures zones structurées) sont des données administrables, jamais codées en dur dans le frontend ou le backend. Prévoir dès le schéma initial une entité dédiée (ex. `DeliveryZone` : nom, délai, tarif, actif/inactif) plutôt que des valeurs conditionnelles éparpillées dans le code — cohérent avec la règle "une seule source de vérité" et avec le besoin exprimé d'ajouter facilement une nouvelle zone depuis l'administration, sans intervention développeur.

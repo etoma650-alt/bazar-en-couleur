@@ -1,0 +1,54 @@
+---
+description: Règles de sécurité applicatives pour Bazar en couleur
+globs: src/**
+alwaysApply: true
+---
+
+# SECURITY
+
+## Confiance zéro envers le frontend
+
+Ne jamais faire confiance aux données provenant du navigateur — tout ce qui est envoyé par le frontend peut être falsifié. Le backend doit toujours revérifier : prix, quantité, stock, utilisateur, permissions, statut, montant du paiement, identifiant de commande. Le prix affiché côté client n'est jamais la vérité — le backend recalcule le montant réel.
+
+## Connexion sociale (Google / Apple)
+
+Chaque connexion via Google ou Apple est vérifiée côté serveur via le jeton officiel renvoyé par le fournisseur — jamais acceptée sur simple déclaration du frontend ("l'utilisateur dit être connecté à Google"). La liaison entre un compte social et un compte existant (même email) suit une règle explicite et vérifiée côté serveur, jamais une fusion automatique silencieuse.
+
+## Authentification et autorisation
+
+Être connecté ne signifie pas être autorisé. Chaque opération sensible vérifie : identité, session, rôle, permission, propriété de la ressource lorsque nécessaire. Un client connecté ne doit jamais pouvoir agir sur une ressource qui ne lui appartient pas simplement parce qu'il en connaît l'identifiant. Un compte gérant ne doit jamais accéder aux données financières/CA, même en modifiant l'URL directement — la protection existe côté serveur, jamais seulement dans l'interface (bouton masqué ≠ sécurité).
+
+## Authentification — durcissement
+
+- Rate limiting sur la page de connexion (anti brute-force).
+- Un seul message d'erreur générique pour identifiant/mot de passe incorrect (anti-énumération de comptes) — jamais "email inconnu" vs "mot de passe incorrect" séparément.
+- Mots de passe hashés (Argon2 ou bcrypt), jamais lisibles en clair, jamais journalisés.
+- Sessions avec expiration, HTTPS partout.
+
+## Clés et secrets
+
+Clé publique de paiement côté client uniquement — la clé secrète ne quitte jamais le serveur. Secrets exclusivement en variables d'environnement (`.env`, jamais commité — `.env` dans `.gitignore`) ou dans les variables d'environnement Hostinger en production. Ne jamais écrire de secret en dur dans le code.
+
+## Validation des entrées
+
+Toute donnée provenant d'un formulaire, d'une API, d'un utilisateur, de la base de données ou d'un webhook est considérée invalide jusqu'à validation explicite (email, téléphone, prix, quantité, ID, adresse, code promo, données de commande).
+
+## Upload de fichiers
+
+Taille maximale imposée sur tout fichier uploadé (photos produit). Type de fichier vérifié côté serveur (pas seulement l'extension). CORS configuré strictement, jamais en wildcard sur les routes sensibles.
+
+## Webhooks
+
+Chaque webhook (Orange Money, MTN MoMo) est protégé par vérification de signature avant tout traitement. Un webhook non signé ou à la signature invalide est rejeté sans effet de bord.
+
+## Gestion des erreurs et logs
+
+Ne jamais masquer silencieusement une erreur (`catch { return null }` interdit) — elle doit être gérée, journalisée si nécessaire, produire une réponse appropriée. Ne jamais exposer au client : stack trace, secrets, clés API, requêtes SQL, détails internes du serveur. Messages d'erreur détaillés coupés en production. Logs non verbeux, et ne contenant jamais mots de passe, tokens, données bancaires ou informations sensibles inutiles.
+
+## Données bancaires
+
+Ne jamais stocker de numéro de carte complet, CVV ou donnée bancaire sensible — cela reste géré exclusivement par l'opérateur Mobile Money. L'application ne conserve que les informations nécessaires au suivi de la transaction (référence, statut, montant).
+
+## Maintenance
+
+Dépendances npm tenues à jour, audit de sécurité régulier (`npm audit`).

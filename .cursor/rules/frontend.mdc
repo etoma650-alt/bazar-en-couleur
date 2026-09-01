@@ -1,0 +1,51 @@
+---
+description: Règles frontend, UX, accessibilité et responsive pour Bazar en couleur
+globs: src/app/**, src/components/**, src/features/**
+alwaysApply: true
+---
+
+# FRONTEND
+
+## Rôle du frontend
+
+Le frontend affiche et demande — il ne décide jamais. Il n'est jamais la source de vérité pour le prix, le stock, les permissions, les paiements, les commandes ou la sécurité.
+
+## États obligatoires
+
+Toute action asynchrone importante (ex. "Commander") prévoit : chargement, succès, erreur, et état vide lorsque pertinent. Bouton désactivé après premier clic pour éviter les doubles soumissions (ex. double commande). Chaque liste prévoit un état vide explicite ("Vous n'avez encore aucune commande.") — jamais un écran blanc. Skeleton ou spinner pour tout chargement, jamais un écran qui semble bloqué.
+
+## Navigation clavier — obligatoire
+
+Toute l'application utilisable au clavier : Tab, Shift+Tab, Entrée, Échap, flèches lorsque pertinent. Ordre de navigation logique. Ne jamais utiliser un `<div>` comme bouton quand un `<button>` convient. Ne jamais supprimer les outlines de focus sans alternative accessible visible.
+
+## Accessibilité
+
+HTML sémantique (`header`, `nav`, `main`, `section`, `footer`, `button`, `form`, `label`). Champs de formulaire avec labels. Images importantes avec texte alternatif pertinent. Icônes-boutons avec nom accessible. Modales : focus géré, fermeture au clavier (Échap), pas de navigation clavier incohérente derrière la modale.
+
+## Responsive et mobile
+
+Fonctionnement testé au minimum à 320px, 375px, 768px, 1024px, 1440px. Conception mobile-first, jamais desktop-only adapté après coup. Boutons suffisamment grands pour un usage au doigt. Panier et checkout particulièrement simples sur mobile. CTA principaux visibles sans défilement ; CTA sticky sur mobile pour l'ajout au panier.
+
+## Comparateur d'articles
+
+Sélection limitée à 3 articles maximum, contrôlée aussi bien côté interface (désactivation du bouton "Comparer" au-delà de 3) que côté serveur au moment de charger les données de comparaison (jamais une limite uniquement visuelle). La comparaison reste strictement cantonnée à une même catégorie — un article d'une autre catégorie ne doit pas pouvoir être ajouté à une sélection en cours, ni côté interface ni côté API.
+
+## Design system
+
+Pas de style différent par page. Composants réutilisables, tokens de couleur/espacement/typographie cohérents. Un bouton "Primary" a le même comportement partout. Avant de créer un composant, vérifier qu'un équivalent n'existe pas déjà (éviter `Button.tsx` / `MyButton.tsx` / `PrimaryButton.tsx` en parallèle).
+
+## Résilience faible connexion (spécifique Cameroun)
+
+Rendu serveur (SSR) pour afficher le contenu essentiel avant chargement complet du JS. Images en WebP/AVIF, compression, `lazy loading` hors zone visible, placeholder flou pendant le chargement. Panier persistant côté serveur, jamais uniquement en mémoire navigateur ou `localStorage`/`sessionStorage`. Détection du mode économie de données (`Save-Data` header) pour désactiver le chargement de la vidéo du hero (seul élément réellement lourd). Bandeau d'état de connexion instable plutôt qu'écran blanc ou erreur brute.
+
+## Animations et effets visuels
+
+Les animations (zoom au survol, zoom loupe, fondu au défilement, brillance des badges, transitions de sélection) sont purement CSS/visuelles, sans poids de téléchargement — elles restent actives quelle que soit la qualité de connexion, y compris en mode économie de données. Seule la vidéo optionnelle du hero est conditionnée à la détection de connexion (voir ci-dessus) : ne jamais appliquer la même logique de désactivation aux deux, ce sont deux mécanismes différents.
+
+## Mode sombre / clair
+
+Implémenté via variables CSS (tokens de couleur), jamais par duplication de composants. Le thème sombre reprend la palette de marque (noir, rose poudré, or) plutôt qu'un gris générique — cohérence avec le design system à respecter comme toute autre variable de thème.
+
+## Application installable (PWA)
+
+Manifeste (nom, icônes, couleurs de thème) et service worker pour la mise en cache des pages déjà visitées. Le cache doit rester cohérent avec la stratégie de résilience faible connexion déjà en place (mêmes ressources mises en cache) — ne pas construire un second mécanisme de cache parallèle. Le mode hors connexion reste une consultation de secours de contenu déjà chargé, jamais une prétention de fonctionnalité complète hors ligne (pas de commande possible sans connexion, pour rester cohérent avec la règle anti-simulation de `project.mdc`).

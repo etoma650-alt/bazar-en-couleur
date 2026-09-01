@@ -1,0 +1,80 @@
+---
+description: Règles générales de gouvernance du projet Bazar en couleur — source de vérité, protocole de modification, stack officielle
+globs:
+alwaysApply: true
+---
+
+# PROJECT — Gouvernance générale
+
+## 0. Source de vérité
+
+Le cahier des charges (`docs/cahier-des-charges.md`), les décisions d'architecture validées et ces règles constituent la SOURCE DE VÉRITÉ du projet.
+
+Ne jamais inventer une fonctionnalité, modifier une règle métier ou changer l'architecture de sa propre initiative.
+
+En cas de conflit entre (1) cahier des charges, (2) architecture existante, (3) demande utilisateur explicite, (4) suggestion technique : la demande utilisateur explicite et le cahier des charges validé priment.
+
+Si une demande implique une modification importante de l'architecture, signaler clairement l'impact AVANT de modifier le projet.
+
+NE JAMAIS : inventer des fonctionnalités · supprimer une fonctionnalité existante sans autorisation · remplacer une technologie sans autorisation · changer le schéma de base de données sans justification · créer une deuxième façon de faire la même chose sans raison · introduire une dépendance inutile · modifier une partie non concernée par la tâche.
+
+## 1. Stack officielle — non négociable
+
+Next.js · TypeScript · Node.js (intégré à Next.js, pas de service séparé) · Prisma · MySQL (Hostinger infogéré) · GitHub · Hostinger Web Apps.
+
+Ne jamais proposer MariaDB ou PostgreSQL comme base principale. Ne jamais introduire une autre technologie majeure sans validation explicite. Avant d'ajouter une librairie : vérifier qu'une solution existante ne suffit pas, vérifier que le besoin ne peut pas être résolu proprement autrement, vérifier qu'elle est réellement nécessaire.
+
+## 2. Règle "comprendre avant de coder"
+
+Avant toute modification importante : inspecter l'architecture existante, identifier les fichiers et dépendances concernés, identifier les composants réutilisables, identifier les modèles Prisma et API existants, vérifier les règles métier et les tests existants.
+
+Ne pas créer de nouveaux fichiers simplement parce qu'ils semblent nécessaires. Réutiliser l'existant lorsque c'est pertinent.
+
+## 3. Règle "ne pas deviner"
+
+Si une information n'est pas connue (prix, statut, comportement de paiement, nom de champ, règle métier, permission, endpoint, structure de table) : NE PAS l'inventer. Utiliser l'information disponible dans le cahier des charges ou le projet. Si elle n'existe pas, la signaler et proposer explicitement une hypothèse AVANT de l'implémenter si elle a un impact métier.
+
+## 4. Protocole de modification (toute demande complexe)
+
+1. **Analyse** — comprendre la demande, identifier les parties concernées.
+2. **Plan** — définir précisément les modifications nécessaires.
+3. **Implémentation** — modifier uniquement ce qui est nécessaire.
+4. **Validation** — TypeScript, lint, tests, build.
+5. **Vérification fonctionnelle** — comportement réel de la fonctionnalité.
+6. **Régression** — les fonctionnalités existantes fonctionnent toujours.
+
+NE PAS passer directement à une refonte complète. NE PAS réécrire une fonctionnalité fonctionnelle "pour l'améliorer" sans demande explicite. NE PAS modifier l'architecture existante sans nécessité. NE PAS "nettoyer" du code non lié à la tâche. Le scope d'une tâche reste limité — pas de "big bang" (30 fichiers modifiés pour un problème simple).
+
+## 5. Règle anti-simulation — transversale, absolue
+
+Une fonctionnalité réelle ne doit JAMAIS être remplacée par une simulation pour donner l'impression qu'elle fonctionne, à aucun endroit du projet (Bolt inclus).
+
+Interdit en toute circonstance, y compris en production ET pendant le développement hors environnement explicitement identifié DEMO/DEV : faux paiement · faux statut de commande · faux stock · faux utilisateur · faux résultat API · bouton qui affiche simplement "succès" · données codées en dur pour simuler le backend.
+
+Les mocks sont autorisés UNIQUEMENT dans les tests ou dans un environnement explicitement identifié comme DEMO/DEVELOPMENT, et doivent être signalés comme temporaires — jamais présentés comme une fonctionnalité terminée.
+
+## 6. Anti-régression et suppression de code
+
+Avant de modifier une fonctionnalité existante : identifier ce qui en dépend (ex. modifier `ProductCard` → vérifier catalogue, recherche, catégories, panier, favoris, recommandations). Après modification : vérifier les fonctionnalités dépendantes.
+
+Avant de supprimer du code : vérifier qu'il n'est plus utilisé, vérifier les imports, routes, dépendances, tests. Ne jamais supprimer "parce que ça semble inutile". Ne jamais créer de code mort (fonctions, composants, endpoints, variables inutilisés).
+
+## 7. Git
+
+Commits isolables et explicites (`feat: add product management`, `fix: prevent duplicate checkout`). Éviter les messages vagues (`update`, `fix`, `final`).
+
+## 8. Anti-code cassé
+
+Après chaque modification importante : `npm run lint`, `npm run build`, tests disponibles. Si une commande échoue, corriger la cause — ne jamais désactiver la règle qui provoque l'erreur pour faire passer le build.
+
+## 9. Avant de déclarer une tâche terminée
+
+Vérifier : TypeScript, lint, build, tests, routes concernées, API concernée, base de données concernée, responsive, navigation clavier, états de chargement/erreur/vide, permissions, sécurité, régression éventuelle.
+
+Une tâche n'est pas terminée parce que le code a été écrit — elle l'est quand son comportement complet fonctionne de bout en bout.
+
+## 10. Priorités en cas d'arbitrage
+
+1. Fonctionnement réel — 2. Sécurité — 3. Cohérence backend/frontend — 4. Intégrité des données — 5. Maintenabilité — 6. Accessibilité — 7. Performance — 8. Esthétique.
+
+Un beau frontend avec une logique métier incorrecte est un ÉCHEC. Un code qui compile mais dont le paiement, le stock, les permissions ou les commandes sont incorrects est un ÉCHEC.

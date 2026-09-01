@@ -1,0 +1,53 @@
+---
+description: Règles paiement (Orange Money / MTN MoMo) et cycle de vie des commandes pour Bazar en couleur
+globs: src/app/api/payments/**, src/app/api/orders/**, src/services/**
+alwaysApply: true
+---
+
+# PAYMENTS — zone critique
+
+## Principe fondamental
+
+Le frontend qui affiche "paiement réussi" n'est JAMAIS une confirmation de paiement. La confirmation vient exclusivement du mécanisme officiel de l'opérateur (webhook Orange Money / MTN MoMo), vérifié côté serveur : montant, devise, référence, commande, statut, signature. Un paiement n'est jamais considéré réussi sur la seule base du retour de l'utilisateur sur la page de succès (perte de connexion, fermeture d'app après confirmation téléphone — le statut réel reste consultable indépendamment dans "Mes commandes").
+
+## Idempotence
+
+Les opérations de paiement sont idempotentes. Un même webhook reçu deux fois ne doit jamais créer deux commandes ni deux paiements — vérifier systématiquement l'existence préalable d'un enregistrement pour la référence reçue avant tout traitement.
+
+## Vérification avant paiement (spécifique Bazar en couleur)
+
+Le stock est revérifié en temps réel immédiatement avant le déclenchement du paiement. Si une variante est marquée en rupture, le paiement n'est PAS déclenché — la cliente est informée avant de payer, jamais après. Ceci est le mécanisme principal de prévention des remboursements liés au stock (pas la confirmation manuelle, qui reste un filet de sécurité opérationnel résiduel).
+
+## Réservation de stock
+
+Toute variante ajoutée au panier est réservée pour 15 minutes. Le décompte définitif et permanent du stock n'intervient qu'au paiement confirmé par webhook — jamais à la simple création de la commande ni au simple ajout au panier. Passé le délai sans paiement complété, la réservation est libérée automatiquement (job/traitement asynchrone, pas de dépendance à une action utilisateur).
+
+## Cas résiduel — rupture malgré tout
+
+Si, dans la fenêtre résiduelle entre vérification et capture du paiement, l'article est vendu par un autre canal (boutique physique), déclencher un remboursement automatique via Mobile Money et notifier immédiatement la cliente (email + WhatsApp). Ce cas doit être testé explicitement (voir plan de tests du cahier des charges).
+
+## Paiement à la boutique / à la livraison (espèces)
+
+Ce mode suit un cycle de vie distinct du paiement Mobile Money, jamais mélangé dans le même chemin de code :
+
+- Pas de réservation à 15 minutes : le stock reste réservé jusqu'à la livraison ou le retrait effectif.
+- Deux actions admin séparées et obligatoires : "confirmer la préparation" (identique aux autres commandes) puis "confirmer l'encaissement" au moment de la remise. Seule la seconde déclenche la déduction définitive du stock — jamais la première seule, jamais la création de la commande.
+- Le numéro WhatsApp de la cliente est capturé au checkout pour ce mode ; le contact et la confirmation de la commande avant validation se font hors plateforme (pas de logique à construire pour automatiser cet échange).
+- Échec de livraison : annulation manuelle par un rôle admin avec motif obligatoire (jamais silencieuse). Une tâche planifiée (cron) annule automatiquement et libère le stock après 3 jours sans confirmation d'encaissement, en filet de sécurité si personne n'agit manuellement.
+- Pas de plafond de montant imposé par le système pour ce mode — le contrôle reste humain (conversation WhatsApp), ne pas coder de limite arbitraire non demandée.
+
+## Cycle de vie des commandes
+
+Statuts autorisés, dans cet ordre : `PENDING → PAID → PROCESSING → SHIPPED → DELIVERED`, avec embranchements possibles vers `CANCELLED`, `FAILED`, `REFUNDED`. Ne jamais créer de statut arbitraire supplémentaire. Toute transition de statut est contrôlée côté backend, jamais définie ou modifiée par le frontend.
+
+## Annulation
+
+La cliente peut annuler sa propre commande uniquement tant qu'elle n'a pas atteint le statut `PROCESSING` (confirmation par la boutique). Passé ce statut, seule la boutique (propriétaire ou gérant) peut modifier l'état de la commande.
+
+## Calcul du montant
+
+Le montant à payer est systématiquement recalculé côté serveur au moment du paiement (prix des variantes, remise du code promo, frais de livraison) — jamais transmis tel quel depuis le frontend. Un code promo est revalidé côté serveur (validité, quantité d'usages restante) à l'instant du paiement, pas seulement à son application dans le panier.
+
+## Données bancaires
+
+Aucune donnée bancaire sensible (numéro de carte, CVV) n'est stockée — hors périmètre, géré exclusivement par les opérateurs Mobile Money. Seules référence, statut et montant de la transaction sont conservés.

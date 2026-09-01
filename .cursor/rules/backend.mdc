@@ -1,0 +1,47 @@
+---
+description: Règles backend, API et TypeScript pour Bazar en couleur
+globs: src/app/api/**, src/services/**, src/lib/**
+alwaysApply: true
+---
+
+# BACKEND
+
+## Rôle du backend
+
+Le backend est responsable de : validation, autorisation, prix, stock, commandes, paiements, règles métier, intégrité des données. Ne jamais faire confiance au client.
+
+## TypeScript — mode strict
+
+Interdits : `any` sauf justification exceptionnelle documentée, `@ts-ignore`/`@ts-nocheck` sans justification, casts arbitraires, interfaces dupliquées, types contradictoires. Préférer types explicites, interfaces cohérentes, unions, generics, validation runtime pour toute donnée externe (formulaire, API, BDD, webhook).
+
+## Cohérence frontend/backend
+
+Le frontend ne suppose jamais une structure de données différente de celle réellement fournie par le backend. Pour chaque API : entrées, sorties, erreurs et types définis clairement et documentés. Les noms de champs restent identiques partout (interdit : `product.price` côté frontend vs `product.amount` côté backend).
+
+## Conception des endpoints
+
+Chaque endpoint a une responsabilité claire, une validation d'entrée, une réponse cohérente, une gestion d'erreur, une authentification/autorisation si nécessaire. Préférer plusieurs opérations claires à une API "qui fait tout".
+
+## Logique métier centralisée
+
+La logique métier (calcul du total, des frais, des remises, validation du stock) n'est jamais dupliquée entre page, composant, API et webhook — une seule source de vérité par règle métier (voir aussi `payments.mdc` pour le calcul de prix).
+
+## Prix et argent
+
+Ne jamais utiliser des nombres flottants non contrôlés pour les montants financiers (éviter `19.99 + 5.99` en flottant brut). Utiliser une représentation sûre (unité minimale entière — centimes/francs — ou type Decimal). Toujours préciser devise (FCFA/XAF), montant, taxes (TVA, prix TTC), remise, frais, total.
+
+## Routes et administration
+
+Chaque route a une responsabilité claire, convention uniforme, URLs publiques propres et stables. Les pages/routes d'administration ne sont jamais accessibles simplement parce que l'URL est connue — la protection existe côté serveur, le frontend peut au mieux masquer des boutons mais cela ne constitue jamais une sécurité suffisante.
+
+## Modification d'une fonctionnalité existante
+
+Ne jamais supposer qu'une modification est isolée — rechercher systématiquement les usages, imports, API, composants, types, modèles, tests et routes concernés avant de modifier.
+
+## Demandes WhatsApp
+
+Une demande WhatsApp (créée au clic sur "Commander via WhatsApp") ne réserve jamais de stock — elle reste un simple enregistrement informatif jusqu'à ce qu'un administrateur la marque "Vendu". Cette action de marquage suit exactement le même chemin de code que la décrémentation de stock d'une commande normale (voir `payments.mdc` / `database.mdc`) — ne jamais créer un second mécanisme de décrémentation parallèle pour ce cas.
+
+## Une seule source de vérité (rappel transversal)
+
+Prix → backend/base de données · Statut de commande → modèle Order · Rôles → système d'autorisation · Design → design system frontend · Types d'API → contrats partagés. Éviter toute duplication contradictoire.
